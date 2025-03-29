@@ -1,0 +1,49 @@
+name: Laravel Keycloak Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      keycloak:
+        image: quay.io/keycloak/keycloak:latest
+        env:
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+        ports:
+          - 8080:8080
+        options: --health-cmd="curl -f http://localhost:8080 || exit 1" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, fileinfo, openssl, pdo, tokenizer, json
+        coverage: none
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-interaction
+
+    - name: Prepare environment
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+        
+    - name: Execute tests
+      run: php artisan test
+      env:
+        APP_ENV: testing
+        KEYCLOAK_BASE_URL: http://localhost:8080
+        KEYCLOAK_REALM: master
+        KEYCLOAK_CLIENT_ID: test-client
+        KEYCLOAK_CLIENT_SECRET: test-secret
+        KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
