@@ -13,6 +13,15 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Verify composer.json exists
+      run: |
+        if [ ! -f "composer.json" ]; then
+          echo "composer.json not found! Initializing new Laravel project..."
+          composer create-project laravel/laravel . --prefer-dist --no-interaction --no-dev
+        else
+          echo "composer.json found. Proceeding with normal installation..."
+        fi
+
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
@@ -28,8 +37,8 @@ jobs:
         cp .env.example .env
         php artisan key:generate
         echo "APP_URL=http://localhost" >> .env
-        echo "SESSION_DRIVER=array" >> .env  # Use array driver for testing
-        echo "MOCK_KEYCLOAK=true" >> .env    # Flag to mock Keycloak in tests
+        echo "SESSION_DRIVER=array" >> .env
+        echo "MOCK_KEYCLOAK=true" >> .env
 
     - name: Execute tests
       run: php artisan test
