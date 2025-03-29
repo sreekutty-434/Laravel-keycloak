@@ -16,12 +16,30 @@ jobs:
         env:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
+          KC_HEALTH_ENABLED: true
         ports:
           - 8080:8080
-        options: --health-cmd="curl -f http://localhost:8080 || exit 1" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/health/ready || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        volumes:
+          - keycloak_data:/opt/keycloak/data
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Wait for Keycloak to be ready
+      run: |
+        echo "Waiting for Keycloak to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:8080/health/ready | grep -q '"status":"UP"'; then
+            echo "Keycloak is ready!"
+            break
+          fi
+          sleep 5
+        done
 
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
@@ -37,6 +55,11 @@ jobs:
       run: |
         cp .env.example .env
         php artisan key:generate
+        echo "KEYCLOAK_BASE_URL=http://localhost:8080" >> .env
+        echo "KEYCLOAK_REALM=master" >> .env
+        echo "KEYCLOAK_CLIENT_ID=test-client" >> .env
+        echo "KEYCLOAK_CLIENT_SECRET=test-secret" >> .env
+        echo "KEYCLOAK_REDIRECT_URI=http://localhost:8000/auth/keycloak/callback" >> .env
         
     - name: Execute tests
       run: php artisan test
@@ -47,3 +70,11 @@ jobs:
         KEYCLOAK_CLIENT_ID: test-client
         KEYCLOAK_CLIENT_SECRET: test-secret
         KEYCLOAK_REDIRECT_URI: http://localhost:8000/auth/keycloak/callback
+
+    - name: Configure Test Client (Optional)
+      if: always()
+      run: |
+        # Script to automatically configure Keycloak test client
+        # Requires KC_ADMIN and KC_ADMIN_PASSWORD from your actual setup
+        echo "Skipping automatic Keycloak configuration in CI"
+        # Add your Keycloak CLI commands here if needed
